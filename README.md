@@ -1,4 +1,4 @@
-# @ronit/cp-api 🏆
+# @ronits2407/cp-api 🏆
 
 > One unified, fault-tolerant SDK to fetch upcoming contests, user profiles, problem sets, submissions, and analytics from all major competitive programming platforms.
 

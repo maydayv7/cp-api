@@ -1,5 +1,5 @@
 {
-  "name": "@ronit/cp-api",
+  "name": "@ronits2407/cp-api",
   "version": "1.0.2",
   "description": "One unified, fault-tolerant SDK to fetch contests, profiles, problems, submissions, and analytics from all major competitive programming platforms.",
   "main": "./dist/index.js",
