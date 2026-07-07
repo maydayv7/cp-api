@@ -1,6 +1,6 @@
 {
   "name": "@ronit/cp-api",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "One unified, fault-tolerant SDK to fetch contests, profiles, problems, submissions, and analytics from all major competitive programming platforms.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
