@@ -1,0 +1,59 @@
+{
+  "name": "@ronit/cp-api",
+  "version": "1.0.0",
+  "description": "One unified, fault-tolerant SDK to fetch contests, profiles, problems, submissions, and analytics from all major competitive programming platforms.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "competitive-programming",
+    "codeforces",
+    "atcoder",
+    "codechef",
+    "leetcode",
+    "contests",
+    "cp",
+    "scraper",
+    "api",
+    "unified",
+    "rate-limit",
+    "typescript"
+  ],
+  "author": "Ronit",
+  "license": "MIT",
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ronit/cp-api"
+  },
+  "dependencies": {
+    "axios": "^1.18.1",
+    "cheerio": "^1.2.0",
+    "lru-cache": "^11.5.1"
+  },
+  "devDependencies": {
+    "@types/cheerio": "^0.22.35",
+    "@types/node": "^26.1.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  }
+}
