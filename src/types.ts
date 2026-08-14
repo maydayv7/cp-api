@@ -1,6 +1,6 @@
-export type Platform = 'CODEFORCES' | 'ATCODER' | 'CODECHEF' | 'LEETCODE';
+export type Platform = "CODEFORCES" | "ATCODER" | "CODECHEF" | "LEETCODE";
 
-// ─── Contest ────────────────────────────────────────────────────────────────
+// Contest
 
 export interface UnifiedContest {
   platform: Platform;
@@ -12,7 +12,7 @@ export interface UnifiedContest {
   durationSeconds: number;
 }
 
-// ─── Fetch Options ───────────────────────────────────────────────────────────
+// Fetch Options
 
 export interface FetchOptions {
   /** Filter contests whose names contain any of these keywords (case-insensitive) */
@@ -27,10 +27,10 @@ export interface FetchOptions {
   platforms?: Platform[];
 }
 
-// ─── Rate Limiter ────────────────────────────────────────────────────────────
+// Rate Limiter
 
-export type RateLimitStrategy = 'token-bucket' | 'fixed-window';
-export type RateLimitOnExceeded = 'wait' | 'throw' | 'skip';
+export type RateLimitStrategy = "token-bucket" | "fixed-window";
+export type RateLimitOnExceeded = "wait" | "throw" | "skip";
 
 export interface PlatformRateLimitConfig {
   /** Requests per second allowed */
@@ -57,14 +57,14 @@ export interface RateLimitConfig {
   };
 }
 
-// ─── HTTP Config ─────────────────────────────────────────────────────────────
+// HTTP Config
 
 export interface HttpConfig {
   /** Request timeout in ms (default: 15000) */
   timeout: number;
   /** Max number of retries on failure (default: 3) */
   maxRetries: number;
-  /** Base delay between retries in ms — exponential backoff applied (default: 1000) */
+  /** Base delay between retries in ms - exponential backoff applied (default: 1000) */
   retryDelay: number;
   /** User-Agent string sent with all requests */
   userAgent: string;
@@ -72,7 +72,7 @@ export interface HttpConfig {
   proxy?: string;
 }
 
-// ─── Cache Config ────────────────────────────────────────────────────────────
+// Cache Config
 
 export interface CacheConfig {
   /** Enable caching (default: true) */
@@ -83,7 +83,7 @@ export interface CacheConfig {
   maxSize?: number;
 }
 
-// ─── Events & Logging ─────────────────────────────────────────────────────────
+// Events & Logging
 
 export interface EventsConfig {
   /** Enable event emission (default: false) */
@@ -94,10 +94,10 @@ export interface LoggingConfig {
   /** Enable internal logging (default: false) */
   enabled: boolean;
   /** Log level */
-  level?: 'debug' | 'info' | 'warn' | 'error';
+  level?: "debug" | "info" | "warn" | "error";
 }
 
-// ─── Global Config ───────────────────────────────────────────────────────────
+// Global Config
 
 export interface GlobalConfig {
   cache: CacheConfig;
@@ -107,7 +107,7 @@ export interface GlobalConfig {
   logging: LoggingConfig;
 }
 
-// ─── Unified Users ───────────────────────────────────────────────────────────
+// Unified Users
 
 export interface SolvedProblemsFilter {
   minRating?: number;
@@ -155,10 +155,12 @@ export interface UnifiedUser {
   leetcode?: UnifiedUserPlatformData;
 }
 
-// ─── Analytics ───────────────────────────────────────────────────────────────
+// Analytics
+
+export type HealthPlatform = "CODEFORCES" | "ATCODER" | "CODECHEF" | "LEETCODE";
 
 export interface HealthResult {
-  platform: string;
+  platform: HealthPlatform;
   reachable: boolean;
   latencyMs: number;
   timestamp: Date;
@@ -173,10 +175,10 @@ export interface RatingProgressResult {
 }
 
 export interface DifficultyDistribution {
-  '<800': number;
-  '800-1199': number;
-  '1200-1599': number;
-  '1600-1999': number;
-  '2000-2399': number;
-  '2400+': number;
+  "<800": number;
+  "800-1199": number;
+  "1200-1599": number;
+  "1600-1999": number;
+  "2000-2399": number;
+  "2400+": number;
 }

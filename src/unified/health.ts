@@ -1,41 +1,48 @@
-import axios from 'axios';
+import { getConfig } from "../config";
+import type { HealthPlatform, HealthResult } from "../types";
+import { HttpClient } from "../utils/httpClient";
+import { parseProxy } from "../utils/platformHttpClient";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// TYPES
 
-/** The set of platforms that the Health checker understands. */
-export type HealthPlatform = 'CODEFORCES' | 'ATCODER' | 'CODECHEF' | 'LEETCODE';
+/** The set of platforms that the Health checker understands */
+export type { HealthPlatform, HealthResult } from "../types";
 
-/**
- * The result of a single platform connectivity check.
- */
-export type HealthResult = {
-  /** Canonical platform identifier. */
-  platform: HealthPlatform;
-  /** `true` when the platform responded within the timeout with a valid HTTP status. */
-  reachable: boolean;
-  /** Round-trip time in milliseconds, measured from request start to response receipt. */
-  latencyMs: number;
-  /** UTC timestamp of when this check was performed. */
-  timestamp: Date;
-  /** Human-readable error message when `reachable` is `false`. */
-  error?: string;
-};
+// CONFIG
 
-// ---------------------------------------------------------------------------
-// Configuration
-// ---------------------------------------------------------------------------
-
-/** Maximum time (ms) to wait for any single platform health check. */
+/** Maximum time (ms) to wait for any single platform health check */
 const HEALTH_TIMEOUT_MS = 8_000;
 
-// ---------------------------------------------------------------------------
-// Per-platform check implementations
-// ---------------------------------------------------------------------------
+type HealthClientEntry = { signature: string; client: HttpClient };
+const healthClients = new Map<string, HealthClientEntry>();
+
+function healthClient(platform: string): HttpClient {
+  const http = getConfig().http;
+  const options = {
+    platform,
+    timeout: Math.min(http.timeout, HEALTH_TIMEOUT_MS),
+    maxRetries: 0,
+    retryDelay: http.retryDelay,
+    userAgent: http.userAgent,
+    proxy: parseProxy(http.proxy),
+  };
+  const signature = JSON.stringify(options);
+  const existing = healthClients.get(platform);
+  if (existing?.signature === signature) return existing.client;
+  const client = new HttpClient(options);
+  healthClients.set(platform, { signature, client });
+  return client;
+}
+
+/** Clear cached health clients @internal */
+export function resetHealthClients(): void {
+  healthClients.clear();
+}
+
+// PER-PLATFORM CHECK
 
 /**
- * Check Codeforces connectivity.
+ * Check Codeforces connectivity
  *
  * Endpoint: `GET /api/contest.list?gym=false`
  * Success criterion: HTTP 2xx **and** `response.data.status === "OK"`.
@@ -45,28 +52,29 @@ async function checkCodeforces(): Promise<HealthResult> {
   const start = Date.now();
 
   try {
-    const response = await axios.get('https://codeforces.com/api/contest.list?gym=false', {
-      timeout: HEALTH_TIMEOUT_MS,
-      // Avoid returning a cached 304; we want a live round-trip.
-      headers: { 'Cache-Control': 'no-cache' },
-    });
+    const data = await healthClient("codeforces").get<any>(
+      "https://codeforces.com/api/user.info?handles=tourist",
+      undefined,
+      { "Cache-Control": "no-cache" },
+      { timeout: HEALTH_TIMEOUT_MS },
+    );
 
     const latencyMs = Date.now() - start;
 
-    if (response.data?.status !== 'OK') {
+    if (data?.status !== "OK") {
       return {
-        platform: 'CODEFORCES',
+        platform: "CODEFORCES",
         reachable: false,
         latencyMs,
         timestamp,
-        error: `Unexpected API status: ${response.data?.status ?? 'unknown'}`,
+        error: `Unexpected API status: ${data?.status ?? "unknown"}`,
       };
     }
 
-    return { platform: 'CODEFORCES', reachable: true, latencyMs, timestamp };
+    return { platform: "CODEFORCES", reachable: true, latencyMs, timestamp };
   } catch (err: any) {
     return {
-      platform: 'CODEFORCES',
+      platform: "CODEFORCES",
       reachable: false,
       latencyMs: Date.now() - start,
       timestamp,
@@ -76,10 +84,10 @@ async function checkCodeforces(): Promise<HealthResult> {
 }
 
 /**
- * Check AtCoder (via Kenkoooo API) connectivity.
+ * Check AtCoder (via Kenkoooo API) connectivity
  *
  * Endpoint: `GET /resources/problems.json`
- * Uses `Range: bytes=0-10` so we only download a tiny slice — the server
+ * Uses `Range: bytes=0-10` so we only download a tiny slice - the server
  * responding with 206 Partial Content confirms reachability without pulling
  * tens of MB of problem data.
  */
@@ -88,22 +96,23 @@ async function checkAtCoder(): Promise<HealthResult> {
   const start = Date.now();
 
   try {
-    await axios.get('https://kenkoooo.com/atcoder/resources/problems.json', {
-      timeout: HEALTH_TIMEOUT_MS,
-      headers: { Range: 'bytes=0-10' },
-      // axios will throw on non-2xx by default; 206 is fine.
-      validateStatus: (status) => status >= 200 && status < 300,
-    });
+    const data = await healthClient("atcoder").get<unknown>(
+      "https://kenkoooo.com/atcoder/atcoder-api/v3/user/submissions",
+      { user: "tourist", from_second: Math.floor(Date.now() / 1000) },
+    );
+
+    if (!Array.isArray(data))
+      throw new Error("Unexpected submissions response");
 
     return {
-      platform: 'ATCODER',
+      platform: "ATCODER",
       reachable: true,
       latencyMs: Date.now() - start,
       timestamp,
     };
   } catch (err: any) {
     return {
-      platform: 'ATCODER',
+      platform: "ATCODER",
       reachable: false,
       latencyMs: Date.now() - start,
       timestamp,
@@ -113,42 +122,41 @@ async function checkAtCoder(): Promise<HealthResult> {
 }
 
 /**
- * Check CodeChef connectivity.
+ * Check CodeChef connectivity
  *
  * Endpoint: `GET /api/list/contests/all`
  * Success criterion: HTTP 2xx with a JSON body (we just check the response
- * arrives — no deep inspection required for a liveness probe).
+ * arrives - no deep inspection required for a liveness probe).
  */
 async function checkCodeChef(): Promise<HealthResult> {
   const timestamp = new Date();
   const start = Date.now();
 
   try {
-    const response = await axios.get('https://www.codechef.com/api/list/contests/all', {
-      timeout: HEALTH_TIMEOUT_MS,
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-        Accept: 'application/json',
-      },
-    });
+    const data = await healthClient("codechef").get<any>(
+      "https://www.codechef.com/api/list/contests/all",
+      undefined,
+      { "Cache-Control": "no-cache" },
+      { timeout: HEALTH_TIMEOUT_MS },
+    );
 
     const latencyMs = Date.now() - start;
 
     // CodeChef returns { status: 'success', … } on success.
-    if (response.data?.status && response.data.status !== 'success') {
+    if (data?.status && data.status !== "success") {
       return {
-        platform: 'CODECHEF',
+        platform: "CODECHEF",
         reachable: false,
         latencyMs,
         timestamp,
-        error: `Unexpected status field: ${response.data.status}`,
+        error: `Unexpected status field: ${data.status}`,
       };
     }
 
-    return { platform: 'CODECHEF', reachable: true, latencyMs, timestamp };
+    return { platform: "CODECHEF", reachable: true, latencyMs, timestamp };
   } catch (err: any) {
     return {
-      platform: 'CODECHEF',
+      platform: "CODECHEF",
       reachable: false,
       latencyMs: Date.now() - start,
       timestamp,
@@ -158,7 +166,7 @@ async function checkCodeChef(): Promise<HealthResult> {
 }
 
 /**
- * Check LeetCode GraphQL endpoint connectivity.
+ * Check LeetCode GraphQL endpoint connectivity
  *
  * Endpoint: `POST /graphql` with an introspection mini-query `{ __typename }`.
  * This is the lightest possible valid GraphQL request and confirms the API
@@ -169,35 +177,32 @@ async function checkLeetCode(): Promise<HealthResult> {
   const start = Date.now();
 
   try {
-    const response = await axios.post(
-      'https://leetcode.com/graphql',
-      { query: '{ __typename }' },
-      {
-        timeout: HEALTH_TIMEOUT_MS,
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0',
-        },
-      },
+    const response = await healthClient("leetcode").post<{
+      data?: unknown;
+    }>(
+      "https://leetcode.com/graphql",
+      { query: "{ __typename }" },
+      { "Content-Type": "application/json" },
+      { timeout: HEALTH_TIMEOUT_MS },
     );
 
     const latencyMs = Date.now() - start;
 
     // A valid GraphQL response always has a `data` key.
-    if (!response.data || typeof response.data.data === 'undefined') {
+    if (typeof response.data === "undefined") {
       return {
-        platform: 'LEETCODE',
+        platform: "LEETCODE",
         reachable: false,
         latencyMs,
         timestamp,
-        error: 'Response missing GraphQL `data` field',
+        error: "Response missing GraphQL `data` field",
       };
     }
 
-    return { platform: 'LEETCODE', reachable: true, latencyMs, timestamp };
+    return { platform: "LEETCODE", reachable: true, latencyMs, timestamp };
   } catch (err: any) {
     return {
-      platform: 'LEETCODE',
+      platform: "LEETCODE",
       reachable: false,
       latencyMs: Date.now() - start,
       timestamp,
@@ -206,9 +211,7 @@ async function checkLeetCode(): Promise<HealthResult> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Dispatch table
-// ---------------------------------------------------------------------------
+// DISPATCH TABLE
 
 const CHECKERS: Record<HealthPlatform, () => Promise<HealthResult>> = {
   CODEFORCES: checkCodeforces,
@@ -218,14 +221,17 @@ const CHECKERS: Record<HealthPlatform, () => Promise<HealthResult>> = {
 };
 
 /** Ordered list used when no specific platform is requested. */
-const ALL_PLATFORMS: HealthPlatform[] = ['CODEFORCES', 'ATCODER', 'CODECHEF', 'LEETCODE'];
+const ALL_PLATFORMS: HealthPlatform[] = [
+  "CODEFORCES",
+  "ATCODER",
+  "CODECHEF",
+  "LEETCODE",
+];
 
-// ---------------------------------------------------------------------------
-// Health class
-// ---------------------------------------------------------------------------
+// Health CLASS
 
 /**
- * **Health** — lightweight connectivity probes for all supported CP platforms.
+ * **Health** - lightweight connectivity probes for all supported CP platforms
  *
  * Every check fires a minimal real HTTP request, measures the round-trip
  * latency, and returns a structured {@link HealthResult}. All checks run in
@@ -234,7 +240,7 @@ const ALL_PLATFORMS: HealthPlatform[] = ['CODEFORCES', 'ATCODER', 'CODECHEF', 'L
  *
  * @example
  * ```ts
- * import { Health } from '@ronit/cp-api/unified/health';
+ * import { Health } from '@ronits2407/cp-api/unified/health';
  *
  * const health = new Health();
  *
@@ -250,12 +256,12 @@ const ALL_PLATFORMS: HealthPlatform[] = ['CODEFORCES', 'ATCODER', 'CODECHEF', 'L
 export class Health {
   /**
    * Run connectivity checks for the specified platform, or for **all four**
-   * platforms when called with no argument.
+   * platforms when called with no argument
    *
    * Checks are executed in parallel with a per-check timeout of
    * {@link HEALTH_TIMEOUT_MS} ms (8 s). A check that times out or throws an
    * error still returns a {@link HealthResult} with `reachable: false` and an
-   * `error` description — it never rejects the returned Promise.
+   * `error` description - it never rejects the returned Promise.
    *
    * @param platform Optional. One of `'CODEFORCES'`, `'ATCODER'`,
    *                 `'CODECHEF'`, or `'LEETCODE'`. Omit to check all.
@@ -280,23 +286,21 @@ export class Health {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Internal utilities
-// ---------------------------------------------------------------------------
+// UTILITIES
 
 /**
- * Extract a concise human-readable message from an unknown thrown value.
+ * Extract a concise human-readable message from an unknown thrown value
  * Prefers `err.message`; for Axios errors also appends the HTTP status.
  */
 function _errorMessage(err: any): string {
-  if (!err) return 'Unknown error';
+  if (!err) return "Unknown error";
 
-  // Axios error with an HTTP response.
+  // Axios error with an HTTP response
   if (err.response) {
     return `HTTP ${err.response.status}: ${err.message}`;
   }
 
-  // Network-level error (ECONNREFUSED, ETIMEDOUT, etc.).
+  // Network-level error (ECONNREFUSED, ETIMEDOUT, etc.)
   if (err.code) {
     return `${err.code}: ${err.message}`;
   }

@@ -1,12 +1,12 @@
 /**
- * @ronit/cp-api
+ * @ronits2407/cp-api
  *
  * One unified, fault-tolerant SDK to fetch upcoming contests, user profiles,
  * problem sets, submissions, and analytics from all major competitive
  * programming platforms.
  *
  * @example
- * import { cp } from '@ronit/cp-api';
+ * import { cp } from '@ronits2407/cp-api';
  *
  * // Configure once
  * cp.configure({
@@ -41,68 +41,101 @@
  * // [{ platform: 'CODEFORCES', reachable: true, latencyMs: 123, ... }, ...]
  */
 
-// ─── Platform Wrappers ────────────────────────────────────────────────────────
-import { Codeforces } from './platforms/codeforces';
-import { AtCoder }    from './platforms/atcoder';
-import { CodeChef }   from './platforms/codechef';
-import { LeetCode }   from './platforms/leetcode';
+// PLATFORM WRAPPERS
+import { Codeforces } from "./platforms/codeforces";
+import { AtCoder } from "./platforms/atcoder";
+import { CodeChef } from "./platforms/codechef";
+import { LeetCode } from "./platforms/leetcode";
 
-// ─── Unified APIs ─────────────────────────────────────────────────────────────
-import { Contests }   from './unified/contests';
-import { Users }      from './unified/users';
-import { Analytics }  from './unified/analytics';
-import { Health }     from './unified/health';
+// UNIFIED APIs
+import { Contests } from "./unified/contests";
+import { Users } from "./unified/users";
+import { Analytics } from "./unified/analytics";
+import { Health } from "./unified/health";
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-import { configure, getConfig, resetConfig, defaultConfig } from './config';
+// CONFIG
+import { configure, getConfig, resetConfig } from "./config";
+export { defaultConfig } from "./config";
 
-// ─── Utilities ────────────────────────────────────────────────────────────────
-import { clearCache, invalidate, getCacheSize }         from './cache';
-import { cpEvents, onEvent, offEvent, emitEvent }       from './utils/events';
-import { RateLimiter, RateLimitError }                  from './utils/rateLimiter';
-import { HttpClient }                                   from './utils/httpClient';
+// UTILITIES
+import { clearCache, invalidate, getCacheSize } from "./cache";
+import { onEvent, offEvent } from "./utils/events";
+export { cpEvents, emitEvent } from "./utils/events";
+export { RateLimiter, RateLimitError } from "./utils/rateLimiter";
+export type {
+  RateLimiterConfig,
+  RateLimiterStatus,
+  RateLimiterStrategy,
+  RateLimitAction,
+} from "./utils/rateLimiter";
+export { HttpClient } from "./utils/httpClient";
+export type { HttpClientConfig } from "./utils/httpClient";
+export type {
+  CPEventListener,
+  CPEventMap,
+  CPEventName,
+  CPEventPayload,
+  FetchRetryEventPayload,
+} from "./utils/events";
+import { resetPlatformHttpClients } from "./utils/platformHttpClient";
 
-// ─── Public Type Re-exports ───────────────────────────────────────────────────
-export * from './types';
+// TYPES
+export * from "./types";
+export type {
+  ProblemContent,
+  ProblemContentPlatform,
+  ProblemSample,
+} from "./problemContent";
+export { ProblemContentAccessError } from "./problemContent";
 
 // Platform types
-export type { CFUserInfo, CFSubmission, CFProblem, CFContest, CFRatingChange,
-              CFHackResult, CFBlogEntry, CFStandings, CFProblemFilters, CFSubmissionFilters }
-  from './platforms/codeforces';
-export { getCFRankFromRating, getCFRatingColor } from './platforms/codeforces';
+export type {
+  CFUserInfo,
+  CFSubmission,
+  CFProblem,
+  CFContest,
+  CFRatingChange,
+  CFHackResult,
+  CFBlogEntry,
+  CFStandings,
+  CFProblemFilters,
+  CFSubmissionFilters,
+} from "./platforms/codeforces";
+export { getCFRankFromRating, getCFRatingColor } from "./platforms/codeforces";
 
-export type { ACProblem, ACProblemModel, ACSubmission, ACUserInfo,
-              ACRatingHistoryEntry, ACProblemFilters, ACSubmissionFilters }
-  from './platforms/atcoder';
-export { getACRankFromRating, getACRatingColor } from './platforms/atcoder';
+export type {
+  ACProblem,
+  ACProblemModel,
+  ACSubmission,
+  ACUserInfo,
+  ACRatingHistoryEntry,
+  ACProblemFilters,
+  ACSubmissionFilters,
+} from "./platforms/atcoder";
+export { getACRankFromRating, getACRatingColor } from "./platforms/atcoder";
 
-// Utils
-export { RateLimiter, RateLimitError }  from './utils/rateLimiter';
-export { HttpClient }                   from './utils/httpClient';
-export { cpEvents, onEvent, offEvent, emitEvent } from './utils/events';
-
-// Cache helpers
-export { clearCache, invalidate, getCacheSize } from './cache';
-
-// ─── CP Singleton ─────────────────────────────────────────────────────────────
-
+// CP Singleton
 class CP {
   // Platform clients
   public readonly codeforces = new Codeforces();
-  public readonly atcoder    = new AtCoder();
-  public readonly codechef   = new CodeChef();
-  public readonly leetcode   = new LeetCode();
+  public readonly atcoder = new AtCoder();
+  public readonly codechef = new CodeChef();
+  public readonly leetcode = new LeetCode();
 
   // Unified high-level APIs
-  public readonly contests  = new Contests();
-  public readonly users     = new Users();
+  public readonly contests = new Contests();
+  public readonly users = new Users();
   public readonly analytics = new Analytics();
-  public readonly health    = new Health();
+  public readonly health = new Health();
 
   // Config management
-  public configure  = configure;
-  public getConfig  = getConfig;
-  public resetConfig = resetConfig;
+  public configure = configure;
+  public getConfig = getConfig;
+  public resetConfig(): void {
+    resetConfig();
+    resetPlatformHttpClients();
+    clearCache();
+  }
 
   // Cache management
   public clearCache = clearCache;
@@ -110,10 +143,13 @@ class CP {
   public getCacheSize = getCacheSize;
 
   // Events
-  public on  = onEvent;
+  public on = onEvent;
   public off = offEvent;
 }
 
-/** The main @ronit/cp-api client. Import and use directly. */
+/**
+ * The main CP-API client
+ * Import and use directly.
+ * */
 export const cp = new CP();
 export default cp;

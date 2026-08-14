@@ -2,16 +2,20 @@
  * Unified Users API
  * Single method to fetch a normalized user profile across all CP platforms.
  */
-import { Codeforces } from '../platforms/codeforces';
-import { AtCoder } from '../platforms/atcoder';
-import { UnifiedUserOptions, UnifiedUser, UnifiedUserPlatformData, SolvedProblemsFilter } from '../types';
+import { Codeforces } from "../platforms/codeforces";
+import { AtCoder } from "../platforms/atcoder";
+import {
+  UnifiedUserOptions,
+  UnifiedUser,
+  UnifiedUserPlatformData,
+} from "../types";
 
 export class Users {
   private cf = new Codeforces();
   private ac = new AtCoder();
 
   /**
-   * Fetch a comprehensive user profile across multiple platforms with configurable boolean flags.
+   * Fetch a comprehensive user profile across multiple platforms with configurable boolean flags
    *
    * @example
    * const profile = await cp.users.get('tourist', {
@@ -28,9 +32,12 @@ export class Users {
    * console.log(profile.atcoder.rank);               // 'Red'
    * console.log(profile.codeforces.streak.current);  // 14
    */
-  async get(handle: string, options: UnifiedUserOptions = {}): Promise<UnifiedUser> {
+  async get(
+    handle: string,
+    options: UnifiedUserOptions = {},
+  ): Promise<UnifiedUser> {
     const {
-      platforms = ['CODEFORCES', 'ATCODER'],
+      platforms = ["CODEFORCES", "ATCODER"],
       includeSubmissions = false,
       includeRatingHistory = false,
       includeSolvedProblems = false,
@@ -44,23 +51,36 @@ export class Users {
     const profile: UnifiedUser = { handle };
     const tasks: Promise<void>[] = [];
 
-    if (platforms.includes('CODEFORCES')) {
-      tasks.push(this._fetchCodeforces(handle, profile, {
-        includeSubmissions, includeRatingHistory, includeSolvedProblems,
-        includeStreak, includeActivityHeatmap, includeContestHistory,
-        submissionsLimit, solvedProblemsFilters,
-      }));
+    if (platforms.includes("CODEFORCES")) {
+      tasks.push(
+        this._fetchCodeforces(handle, profile, {
+          includeSubmissions,
+          includeRatingHistory,
+          includeSolvedProblems,
+          includeStreak,
+          includeActivityHeatmap,
+          includeContestHistory,
+          submissionsLimit,
+          solvedProblemsFilters,
+        }),
+      );
     }
 
-    if (platforms.includes('ATCODER')) {
-      tasks.push(this._fetchAtCoder(handle, profile, {
-        includeSubmissions, includeRatingHistory, includeSolvedProblems,
-        includeStreak, submissionsLimit, solvedProblemsFilters,
-      }));
+    if (platforms.includes("ATCODER")) {
+      tasks.push(
+        this._fetchAtCoder(handle, profile, {
+          includeSubmissions,
+          includeRatingHistory,
+          includeSolvedProblems,
+          includeStreak,
+          submissionsLimit,
+          solvedProblemsFilters,
+        }),
+      );
     }
 
-    // Note: CodeChef and LeetCode user profile APIs require authentication;
-    // they are supported at the platform level but not yet in unified users.
+    // Note: CodeChef and LeetCode user profile APIs require authentication.
+    // They are supported at the platform level but not yet in unified users.
 
     await Promise.allSettled(tasks);
     return profile;
@@ -69,7 +89,7 @@ export class Users {
   private async _fetchCodeforces(
     handle: string,
     profile: UnifiedUser,
-    opts: Required<Omit<UnifiedUserOptions, 'platforms'>>
+    opts: Required<Omit<UnifiedUserOptions, "platforms">>,
   ): Promise<void> {
     try {
       const users = await this.cf.getUser(handle);
@@ -86,61 +106,89 @@ export class Users {
 
       if (opts.includeSubmissions) {
         parallel.push(
-          this.cf.getSubmissions(handle, { count: opts.submissionsLimit })
-            .then(s => { data.submissions = s; })
-            .catch(() => {})
+          this.cf
+            .getSubmissions(handle, { count: opts.submissionsLimit })
+            .then((s) => {
+              data.submissions = s;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeRatingHistory) {
         parallel.push(
-          this.cf.getUserRatingHistory(handle)
-            .then(h => { data.ratingHistory = h; })
-            .catch(() => {})
+          this.cf
+            .getUserRatingHistory(handle)
+            .then((h) => {
+              data.ratingHistory = h;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeSolvedProblems) {
         parallel.push(
-          this.cf.getUserSolvedProblems(handle, opts.solvedProblemsFilters as any)
-            .then(p => { data.solvedProblems = p; })
-            .catch(() => {})
+          this.cf
+            .getUserSolvedProblems(handle, opts.solvedProblemsFilters as any)
+            .then((p) => {
+              data.solvedProblems = p;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeStreak) {
         parallel.push(
-          this.cf.getUserStreak(handle)
-            .then(s => { data.streak = s; })
-            .catch(() => {})
+          this.cf
+            .getUserStreak(handle)
+            .then((s) => {
+              data.streak = s;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeActivityHeatmap) {
         parallel.push(
-          this.cf.getUserActivityHeatmap(handle)
-            .then(h => { data.activityHeatmap = h; })
-            .catch(() => {})
+          this.cf
+            .getUserActivityHeatmap(handle)
+            .then((h) => {
+              data.activityHeatmap = h;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeContestHistory) {
         parallel.push(
-          this.cf.getUserRatingHistory(handle)
-            .then(h => { data.contestHistory = h; })
-            .catch(() => {})
+          this.cf
+            .getUserRatingHistory(handle)
+            .then((h) => {
+              data.contestHistory = h;
+            })
+            .catch(() => {}),
         );
       }
 
       await Promise.allSettled(parallel);
       profile.codeforces = data;
-    } catch { /* silently skip if user not found */ }
+    } catch {
+      /* silently skip if user not found */
+    }
   }
 
   private async _fetchAtCoder(
     handle: string,
     profile: UnifiedUser,
-    opts: Pick<Required<UnifiedUserOptions>, 'includeSubmissions' | 'includeRatingHistory' | 'includeSolvedProblems' | 'includeStreak' | 'submissionsLimit' | 'solvedProblemsFilters'>
+    opts: Pick<
+      Required<UnifiedUserOptions>,
+      | "includeSubmissions"
+      | "includeRatingHistory"
+      | "includeSolvedProblems"
+      | "includeStreak"
+      | "submissionsLimit"
+      | "solvedProblemsFilters"
+    >,
   ): Promise<void> {
     try {
       const u = await this.ac.getUser(handle);
@@ -156,38 +204,52 @@ export class Users {
 
       if (opts.includeSubmissions) {
         parallel.push(
-          this.ac.getUserSubmissions(handle)
-            .then(s => { data.submissions = s.slice(0, opts.submissionsLimit); })
-            .catch(() => {})
+          this.ac
+            .getUserSubmissions(handle)
+            .then((s) => {
+              data.submissions = s.slice(0, opts.submissionsLimit);
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeRatingHistory) {
         parallel.push(
-          this.ac.getUserRatingHistory(handle)
-            .then(h => { data.ratingHistory = h; })
-            .catch(() => {})
+          this.ac
+            .getUserRatingHistory(handle)
+            .then((h) => {
+              data.ratingHistory = h;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeSolvedProblems) {
         parallel.push(
-          this.ac.getUserSolvedProblems(handle, opts.solvedProblemsFilters as any)
-            .then(p => { data.solvedProblems = p; })
-            .catch(() => {})
+          this.ac
+            .getUserSolvedProblems(handle, opts.solvedProblemsFilters as any)
+            .then((p) => {
+              data.solvedProblems = p;
+            })
+            .catch(() => {}),
         );
       }
 
       if (opts.includeStreak) {
         parallel.push(
-          this.ac.getUserStreak(handle)
-            .then(s => { data.streak = s; })
-            .catch(() => {})
+          this.ac
+            .getUserStreak(handle)
+            .then((s) => {
+              data.streak = s;
+            })
+            .catch(() => {}),
         );
       }
 
       await Promise.allSettled(parallel);
       profile.atcoder = data;
-    } catch { /* silently skip */ }
+    } catch {
+      /* silently skip */
+    }
   }
 }

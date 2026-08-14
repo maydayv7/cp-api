@@ -1,51 +1,68 @@
-import { LRUCache } from 'lru-cache';
-import { getConfig } from './config';
+import { LRUCache } from "lru-cache";
+import { getConfig } from "./config";
+import { emitEvent } from "./utils/events";
 
-const _cache = new LRUCache<string, { value: any; expiresAt: number }>({
-  max: 500,
-});
+let configuredMax = 500;
+let cache = new LRUCache<string, any>({ max: configuredMax });
+const pending = new Map<string, Promise<any>>();
 
-/**
- * Fetch with optional LRU cache.
- * @param key        Unique cache key
- * @param fetcher    Async function that fetches the data
- * @param ttlMs      Override TTL in milliseconds (uses global config default if omitted)
- */
+function platformFromKey(key: string): string {
+  const prefix = key.split(":", 1)[0];
+  return (
+    { cf: "codeforces", ac: "atcoder", cc: "codechef", lc: "leetcode" }[
+      prefix
+    ] ?? "unknown"
+  );
+}
+
+function syncCapacity(): void {
+  const max = getConfig().cache.maxSize ?? 500;
+  if (max === configuredMax) return;
+  const entries = cache.dump();
+  configuredMax = max;
+  cache = new LRUCache<string, any>({ max });
+  cache.load(entries);
+}
+
 export async function cachedFetch<T>(
   key: string,
   fetcher: () => Promise<T>,
-  ttlMs?: number
+  ttlMs?: number,
 ): Promise<T> {
   const config = getConfig();
+  syncCapacity();
 
-  if (config.cache.enabled) {
-    const entry = _cache.get(key);
-    if (entry && Date.now() < entry.expiresAt) {
-      return entry.value as T;
-    }
+  if (!config.cache.enabled) return fetcher();
+  if (cache.has(key)) {
+    emitEvent("cache:hit", { platform: platformFromKey(key), key });
+    return cache.get(key) as T;
   }
 
-  const value = await fetcher();
+  emitEvent("cache:miss", { platform: platformFromKey(key), key });
+  const existing = pending.get(key);
+  if (existing) return existing as Promise<T>;
 
-  if (config.cache.enabled) {
-    const ttl = ttlMs ?? config.cache.ttlMs;
-    _cache.set(key, { value, expiresAt: Date.now() + ttl }, { ttl });
-  }
-
-  return value;
+  const request = fetcher()
+    .then((value) => {
+      const ttl = ttlMs ?? getConfig().cache.ttlMs;
+      cache.set(key, value, { ttl });
+      return value;
+    })
+    .finally(() => pending.delete(key));
+  pending.set(key, request);
+  return request;
 }
 
-/** Clear the entire cache */
 export function clearCache(): void {
-  _cache.clear();
+  cache.clear();
+  pending.clear();
 }
 
-/** Clear a specific cache key */
 export function invalidate(key: string): void {
-  _cache.delete(key);
+  cache.delete(key);
 }
 
-/** Get current cache size */
 export function getCacheSize(): number {
-  return _cache.size;
+  syncCapacity();
+  return cache.size;
 }

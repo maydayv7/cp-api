@@ -1,19 +1,22 @@
-import { Codeforces, CFUserInfo, CFSubmission, CFProblem } from '../platforms/codeforces';
-import { AtCoder, ACUserInfo } from '../platforms/atcoder';
+import {
+  Codeforces,
+  CFUserInfo,
+  CFSubmission,
+  CFProblem,
+} from "../platforms/codeforces";
+import { AtCoder, ACUserInfo } from "../platforms/atcoder";
 
-// ---------------------------------------------------------------------------
-// Shared return types
-// ---------------------------------------------------------------------------
+// TYPES
 
-/** A CF user profile enriched with a sorted rank position. */
+/** A CF user profile enriched with a sorted rank position */
 export type RankedCFUser = CFUserInfo & { rank: number };
 
-/** An AC user profile enriched with a sorted rank position. */
+/** An AC user profile enriched with a sorted rank position */
 export type RankedACUser = ACUserInfo & { rank: number };
 
-/** A lightweight descriptor for a Codeforces problem. */
+/** A lightweight descriptor for a Codeforces problem */
 export type CFProblemRef = {
-  /** Unique key — "{contestId}{index}", e.g. "1900A". */
+  /** Unique key - "{contestId}{index}", Eg. "1900A" */
   id: string;
   name: string;
   contestId?: number;
@@ -22,11 +25,11 @@ export type CFProblemRef = {
   tags?: string[];
 };
 
-/** Rating progress summary for a single user over an optional date window. */
+/** Rating progress summary for a single user over an optional date window */
 export type RatingProgress = {
   startRating: number;
   endRating: number;
-  /** Signed delta: endRating − startRating. */
+  /** Signed delta: endRating − startRating */
   delta: number;
   history: Array<{
     date: Date;
@@ -35,26 +38,24 @@ export type RatingProgress = {
   }>;
 };
 
-/** Difficulty buckets for a user's solved problems on Codeforces. */
+/** Difficulty buckets for a user's solved problems on Codeforces */
 export type DifficultyDistribution = {
-  '<800': number;
-  '800-1199': number;
-  '1200-1599': number;
-  '1600-1999': number;
-  '2000-2399': number;
-  '2400+': number;
+  "<800": number;
+  "800-1199": number;
+  "1200-1599": number;
+  "1600-1999": number;
+  "2000-2399": number;
+  "2400+": number;
 };
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
+// HELPERS
 
 /**
- * Build a unique problem key from a CF submission's problem descriptor.
- * Uses "{contestId}{index}" when contestId is present, otherwise just the
- * problem name (fallback for gym / mashup problems).
+ * Build a unique problem key from a CF submission's problem descriptor
+ * Uses "{contestId}{index}" when contestId is present,
+ * otherwise just the problem name (fallback for gym / mashup problems).
  */
-function cfProblemKey(problem: CFSubmission['problem']): string {
+function cfProblemKey(problem: CFSubmission["problem"]): string {
   if (problem.contestId !== undefined) {
     return `${problem.contestId}${problem.index}`;
   }
@@ -62,13 +63,13 @@ function cfProblemKey(problem: CFSubmission['problem']): string {
 }
 
 /**
- * Return only the "OK" (accepted) submissions from a list, de-duplicated by
- * problem key so every problem appears at most once.
+ * Return only the "OK" (accepted) submissions from a list
+ * De-duplicated by problem key so every problem appears at most once.
  */
 function extractSolvedKeys(submissions: CFSubmission[]): Set<string> {
   const solved = new Set<string>();
   for (const s of submissions) {
-    if (s.verdict === 'OK') {
+    if (s.verdict === "OK") {
       solved.add(cfProblemKey(s.problem));
     }
   }
@@ -76,7 +77,7 @@ function extractSolvedKeys(submissions: CFSubmission[]): Set<string> {
 }
 
 /**
- * Convert a raw CF problem into a {@link CFProblemRef}.
+ * Convert a raw CF problem into a {@link CFProblemRef}
  */
 function toCFProblemRef(p: CFProblem): CFProblemRef {
   return {
@@ -89,19 +90,17 @@ function toCFProblemRef(p: CFProblem): CFProblemRef {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Analytics class
-// ---------------------------------------------------------------------------
+// Analytics CLASS
 
 /**
- * **Analytics** — cross-platform competitive programming insights.
+ * **Analytics** - cross-platform competitive programming insights
  *
  * Instantiates its own lightweight Codeforces and AtCoder clients so it can
  * be used standalone or alongside the top-level `cp` singleton.
  *
  * @example
  * ```ts
- * import { Analytics } from '@ronit/cp-api/unified/analytics';
+ * import { Analytics } from '@ronits2407/cp-api/unified/analytics';
  *
  * const analytics = new Analytics();
  *
@@ -113,13 +112,11 @@ export class Analytics {
   private cf = new Codeforces();
   private ac = new AtCoder();
 
-  // -------------------------------------------------------------------------
   // 1. compareUsers
-  // -------------------------------------------------------------------------
 
   /**
    * Fetch profiles for multiple handles on the given platform, sort them by
-   * **current rating** (descending) and annotate each with a 1-based `rank`.
+   * **current rating** (descending) and annotate each with a 1-based `rank`
    *
    * Users whose rating is `undefined` are placed at the bottom, ordered by
    * their original position in the input array.
@@ -136,9 +133,9 @@ export class Analytics {
    */
   async compareUsers(
     handles: string[],
-    platform: 'CODEFORCES' | 'ATCODER',
+    platform: "CODEFORCES" | "ATCODER",
   ): Promise<RankedCFUser[] | RankedACUser[]> {
-    if (platform === 'CODEFORCES') {
+    if (platform === "CODEFORCES") {
       // CF supports bulk handle lookup in a single request.
       const users = await this.cf.getUser(handles);
 
@@ -153,13 +150,16 @@ export class Analytics {
     const results = await Promise.all(
       handles.map(async (handle) => {
         const u = await this.ac.getUser(handle);
-        return u ?? ({
-          user_id: handle,
-          rating: 0,
-          highest_rating: 0,
-          affiliation: '',
-          rank: 0,
-        } as ACUserInfo);
+        return (
+          u ??
+          ({
+            user_id: handle,
+            rating: 0,
+            highest_rating: 0,
+            affiliation: "",
+            rank: 0,
+          } as ACUserInfo)
+        );
       }),
     );
 
@@ -170,13 +170,11 @@ export class Analytics {
     return sorted.map((u, i) => ({ ...u, rank: i + 1 })) as RankedACUser[];
   }
 
-  // -------------------------------------------------------------------------
   // 2. getCommonSolvedProblems
-  // -------------------------------------------------------------------------
 
   /**
-   * Find problems solved by **every** user in the provided list (set
-   * intersection). Currently supports Codeforces only.
+   * Find problems solved by **every** user in the provided list (set intersection)
+   * Currently supports Codeforces only.
    *
    * Each user's recent 10,000 submissions are fetched concurrently. Only
    * submissions with `verdict === "OK"` are considered.
@@ -195,7 +193,7 @@ export class Analytics {
    */
   async getCommonSolvedProblems(
     handles: string[],
-    platform: 'CODEFORCES',
+    _platform: "CODEFORCES",
   ): Promise<CFProblemRef[]> {
     if (handles.length === 0) return [];
 
@@ -228,8 +226,14 @@ export class Analytics {
       if (meta) {
         refs.push(toCFProblemRef(meta));
       } else {
-        // Gym / mashup problem not in the public problemset — include minimal info.
-        refs.push({ id: key, name: key, index: '', rating: undefined, tags: [] });
+        // Gym / mashup problem not in the public problemset - include minimal info
+        refs.push({
+          id: key,
+          name: key,
+          index: "",
+          rating: undefined,
+          tags: [],
+        });
       }
     }
 
@@ -243,13 +247,11 @@ export class Analytics {
     return refs;
   }
 
-  // -------------------------------------------------------------------------
   // 3. getUniqueUnsolvedProblems
-  // -------------------------------------------------------------------------
 
   /**
-   * Return Codeforces problems that a user has **not** solved, optionally
-   * filtered by rating range and tags.
+   * Return Codeforces problems that a user has **not** solved
+   * Optionally filtered by rating range and tags.
    *
    * The full problemset is fetched (cached for 1 h) and the user's 10,000
    * most-recent submissions are used to build the solved set.
@@ -271,7 +273,7 @@ export class Analytics {
   async getUniqueUnsolvedProblems(
     handle: string,
     options?: {
-      platform: 'CODEFORCES';
+      platform: "CODEFORCES";
       minRating?: number;
       maxRating?: number;
       tags?: string[];
@@ -297,10 +299,18 @@ export class Analytics {
       if (solved.has(key)) continue;
 
       // Rating range filter.
-      if (minRating !== undefined && (p.rating === undefined || p.rating < minRating)) continue;
-      if (maxRating !== undefined && (p.rating === undefined || p.rating > maxRating)) continue;
+      if (
+        minRating !== undefined &&
+        (p.rating === undefined || p.rating < minRating)
+      )
+        continue;
+      if (
+        maxRating !== undefined &&
+        (p.rating === undefined || p.rating > maxRating)
+      )
+        continue;
 
-      // Tags filter — problem must include ALL requested tags.
+      // Tags filter - problem must include ALL requested tags
       if (requiredTags && requiredTags.length > 0) {
         const problemTags = (p.tags ?? []).map((t) => t.toLowerCase());
         const hasAll = requiredTags.every((rt) => problemTags.includes(rt));
@@ -310,9 +320,10 @@ export class Analytics {
       unsolved.push(toCFProblemRef(p));
     }
 
-    // Sort by rating ascending, problems without rating go last.
+    // Sort by rating ascending, problems without rating go last
     unsolved.sort((a, b) => {
-      if (a.rating === undefined && b.rating === undefined) return a.id.localeCompare(b.id);
+      if (a.rating === undefined && b.rating === undefined)
+        return a.id.localeCompare(b.id);
       if (a.rating === undefined) return 1;
       if (b.rating === undefined) return -1;
       return a.rating - b.rating;
@@ -321,13 +332,11 @@ export class Analytics {
     return unsolved;
   }
 
-  // -------------------------------------------------------------------------
   // 4. getRatingProgress
-  // -------------------------------------------------------------------------
 
   /**
    * Retrieve a user's rating history and compute progress over an optional
-   * date window `[fromDate, toDate]`.
+   * date window `[fromDate, toDate]`
    *
    * - **Codeforces**: uses `user.rating` API endpoint.
    * - **AtCoder**: uses `getUserRatingHistory` which reads the AtCoder
@@ -351,44 +360,27 @@ export class Analytics {
   async getRatingProgress(
     handle: string,
     options: {
-      platform: 'CODEFORCES' | 'ATCODER';
+      platform: "CODEFORCES" | "ATCODER";
       fromDate?: Date;
       toDate?: Date;
     },
   ): Promise<RatingProgress> {
     const { platform, fromDate, toDate } = options;
 
-    if (platform === 'CODEFORCES') {
+    if (platform === "CODEFORCES") {
       return this._cfRatingProgress(handle, fromDate, toDate);
     }
     return this._acRatingProgress(handle, fromDate, toDate);
   }
 
-  /** @internal Codeforces rating progress implementation. */
+  /** @internal Codeforces rating progress implementation */
   private async _cfRatingProgress(
     handle: string,
     fromDate?: Date,
     toDate?: Date,
   ): Promise<RatingProgress> {
-    // CF provides user.rating which returns all rating changes.
-    const { default: axios } = await import('axios');
-    const response = await axios.get(
-      `https://codeforces.com/api/user.rating?handle=${encodeURIComponent(handle)}`,
-      { timeout: 10_000 },
-    );
-
-    if (response.data.status !== 'OK') {
-      throw new Error(`Codeforces API error: ${response.data.comment}`);
-    }
-
     // Raw shape: { contestId, contestName, ratingUpdateTimeSeconds, oldRating, newRating }[]
-    const raw: Array<{
-      contestId: number;
-      contestName: string;
-      ratingUpdateTimeSeconds: number;
-      oldRating: number;
-      newRating: number;
-    }> = response.data.result;
+    const raw = await this.cf.getUserRatingHistory(handle);
 
     let filtered = raw;
     if (fromDate) {
@@ -407,7 +399,8 @@ export class Analytics {
     }));
 
     const startRating = filtered.length > 0 ? filtered[0].oldRating : 0;
-    const endRating = filtered.length > 0 ? filtered[filtered.length - 1].newRating : 0;
+    const endRating =
+      filtered.length > 0 ? filtered[filtered.length - 1].newRating : 0;
 
     return {
       startRating,
@@ -417,7 +410,7 @@ export class Analytics {
     };
   }
 
-  /** @internal AtCoder rating progress implementation. */
+  /** @internal AtCoder rating progress implementation */
   private async _acRatingProgress(
     handle: string,
     fromDate?: Date,
@@ -441,10 +434,11 @@ export class Analytics {
     const history = filtered.map((e: any) => ({
       date: new Date(e.EndTime),
       rating: e.NewRating ?? 0,
-      contestName: e.ContestName ?? '',
+      contestName: e.ContestName ?? "",
     }));
 
-    const startRating: number = filtered.length > 0 ? (filtered[0].OldRating ?? 0) : 0;
+    const startRating: number =
+      filtered.length > 0 ? (filtered[0].OldRating ?? 0) : 0;
     const endRating: number =
       filtered.length > 0 ? (filtered[filtered.length - 1].NewRating ?? 0) : 0;
 
@@ -456,13 +450,11 @@ export class Analytics {
     };
   }
 
-  // -------------------------------------------------------------------------
   // 5. getTagDistribution
-  // -------------------------------------------------------------------------
 
   /**
    * Compute a **tag frequency map** for a Codeforces user: how many unique
-   * problems the user has solved in each tag category.
+   * problems the user has solved in each tag category
    *
    * Each accepted problem is counted once per tag it carries (a single problem
    * may contribute to multiple tag buckets). Duplicate accepted submissions for
@@ -497,7 +489,7 @@ export class Analytics {
     const tagCounts: Record<string, number> = {};
 
     for (const s of submissions) {
-      if (s.verdict !== 'OK') continue;
+      if (s.verdict !== "OK") continue;
 
       const key = cfProblemKey(s.problem);
       if (counted.has(key)) continue;
@@ -515,9 +507,7 @@ export class Analytics {
     );
   }
 
-  // -------------------------------------------------------------------------
   // 6. getDifficultyDistribution
-  // -------------------------------------------------------------------------
 
   /**
    * Compute how many **unique** problems the user has solved in each Codeforces
@@ -538,7 +528,7 @@ export class Analytics {
    */
   async getDifficultyDistribution(
     handle: string,
-    platform: 'CODEFORCES',
+    _platform: "CODEFORCES",
   ): Promise<DifficultyDistribution> {
     const [submissions, allProblems] = await Promise.all([
       this.cf.getSubmissions(handle, { count: 10000 }),
@@ -554,33 +544,34 @@ export class Analytics {
     }
 
     const buckets: DifficultyDistribution = {
-      '<800': 0,
-      '800-1199': 0,
-      '1200-1599': 0,
-      '1600-1999': 0,
-      '2000-2399': 0,
-      '2400+': 0,
+      "<800": 0,
+      "800-1199": 0,
+      "1200-1599": 0,
+      "1600-1999": 0,
+      "2000-2399": 0,
+      "2400+": 0,
     };
 
     const counted = new Set<string>();
 
     for (const s of submissions) {
-      if (s.verdict !== 'OK') continue;
+      if (s.verdict !== "OK") continue;
 
       const key = cfProblemKey(s.problem);
       if (counted.has(key)) continue;
       counted.add(key);
 
-      // Prefer rating from the canonical problemset; fall back to submission data.
+      // Prefer rating from the canonical problemset
+      // Fallback to submission data
       const rating = ratingMap.get(key) ?? s.problem.rating;
       if (rating === undefined) continue;
 
-      if (rating < 800) buckets['<800']++;
-      else if (rating < 1200) buckets['800-1199']++;
-      else if (rating < 1600) buckets['1200-1599']++;
-      else if (rating < 2000) buckets['1600-1999']++;
-      else if (rating < 2400) buckets['2000-2399']++;
-      else buckets['2400+']++;
+      if (rating < 800) buckets["<800"]++;
+      else if (rating < 1200) buckets["800-1199"]++;
+      else if (rating < 1600) buckets["1200-1599"]++;
+      else if (rating < 2000) buckets["1600-1999"]++;
+      else if (rating < 2400) buckets["2000-2399"]++;
+      else buckets["2400+"]++;
     }
 
     return buckets;

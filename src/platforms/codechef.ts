@@ -1,30 +1,20 @@
-import axios from 'axios';
-import { cachedFetch } from '../cache';
-import { getConfig } from '../config';
-import { UnifiedContest } from '../types';
+import { cachedFetch } from "../cache";
+import { UnifiedContest } from "../types";
+import { getPlatformHttpClient } from "../utils/platformHttpClient";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// CONSTANTS
 
-const CC_CONTESTS_URL = 'https://www.codechef.com/api/list/contests/all';
+const CC_CONTESTS_URL = "https://www.codechef.com/api/list/contests/all";
 
-const CC_HEADERS = {
-  'User-Agent': 'Mozilla/5.0',
-  Accept: 'application/json',
-};
-
-/** Cache key for the full CodeChef contests response. */
-const CACHE_KEY = 'cc:contests:all';
+/** Cache key for the full contests response */
+const CACHE_KEY = "cc:contests:all";
 
 /** Cache TTL: 5 minutes (ms) */
 const TTL_5_MIN = 5 * 60 * 1000;
 
-// ---------------------------------------------------------------------------
-// Internal types
-// ---------------------------------------------------------------------------
+// TYPES
 
-/** Raw contest shape returned by the CodeChef contests API. */
+/** Raw contest shape returned by the contests API */
 interface CCRawContest {
   contest_code: string;
   contest_name: string;
@@ -34,7 +24,7 @@ interface CCRawContest {
   [key: string]: unknown;
 }
 
-/** The raw API response envelope. */
+/** The raw API response envelope */
 interface CCApiResponse {
   future_contests: CCRawContest[];
   present_contests: CCRawContest[];
@@ -42,21 +32,21 @@ interface CCApiResponse {
   [key: string]: unknown;
 }
 
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
+// HELPERS
 
 /**
- * Map a raw CodeChef contest object to a {@link UnifiedContest}.
+ * Map a raw CodeChef contest object to a {@link UnifiedContest}
  * @param c Raw contest from the CodeChef API.
  */
 function mapContest(c: CCRawContest): UnifiedContest {
   const startTime = new Date(c.contest_start_date_iso);
   const endTime = new Date(c.contest_end_date_iso);
-  const durationSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000);
+  const durationSeconds = Math.floor(
+    (endTime.getTime() - startTime.getTime()) / 1000,
+  );
 
   return {
-    platform: 'CODECHEF',
+    platform: "CODECHEF",
     id: c.contest_code,
     name: c.contest_name,
     startTime,
@@ -66,17 +56,13 @@ function mapContest(c: CCRawContest): UnifiedContest {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Class
-// ---------------------------------------------------------------------------
+// CodeChef CLASS
 
 export class CodeChef {
-  // -------------------------------------------------------------------------
   // Private helpers
-  // -------------------------------------------------------------------------
 
   /**
-   * Fetch and cache the full CodeChef contests API response.
+   * Fetch and cache the full CodeChef contests API response
    *
    * A single network call returns upcoming, ongoing, and past contests
    * simultaneously. The result is cached for **5 minutes** so that all
@@ -85,27 +71,18 @@ export class CodeChef {
    * @returns The raw API response envelope.
    */
   private async fetchAllRaw(): Promise<CCApiResponse> {
-    const { http } = getConfig();
-
     return cachedFetch(
       CACHE_KEY,
-      async () => {
-        const response = await axios.get<CCApiResponse>(CC_CONTESTS_URL, {
-          timeout: http.timeout,
-          headers: CC_HEADERS,
-        });
-        return response.data;
-      },
+      () =>
+        getPlatformHttpClient("codechef").get<CCApiResponse>(CC_CONTESTS_URL),
       TTL_5_MIN,
     );
   }
 
-  // -------------------------------------------------------------------------
   // Public API
-  // -------------------------------------------------------------------------
 
   /**
-   * Fetch upcoming CodeChef contests (contests that have not yet started).
+   * Fetch upcoming CodeChef contests (contests that have not yet started)
    *
    * Data is derived from `future_contests` in the API response and is
    * cached for **5 minutes**.
@@ -118,7 +95,7 @@ export class CodeChef {
   }
 
   /**
-   * Fetch currently ongoing CodeChef contests (contests in progress).
+   * Fetch currently ongoing CodeChef contests (contests in progress)
    *
    * Data is derived from `present_contests` in the API response and is
    * cached for **5 minutes**.
@@ -131,7 +108,7 @@ export class CodeChef {
   }
 
   /**
-   * Fetch past CodeChef contests (contests that have already ended).
+   * Fetch past CodeChef contests (contests that have already ended)
    *
    * Data is derived from `past_contests` in the API response and is
    * cached for **5 minutes**.
@@ -149,7 +126,7 @@ export class CodeChef {
   }
 
   /**
-   * Fetch all CodeChef contests in a single API call.
+   * Fetch all CodeChef contests in a single API call
    *
    * Returns upcoming, ongoing, and past contests together, derived from
    * the cached API response. This is the most efficient method when you
@@ -177,12 +154,12 @@ export class CodeChef {
   }
 
   /**
-   * Fetch a single CodeChef contest by its contest code.
+   * Fetch a single CodeChef contest by its contest code
    *
    * Searches across upcoming, ongoing, and past contests from the cached
    * API response. Returns `null` if no matching contest is found.
    *
-   * @param contestCode The unique contest code (e.g. `'START100'`).
+   * @param contestCode The unique contest code (Eg. `'START100'`).
    * @returns The matching {@link UnifiedContest}, or `null` if not found.
    *
    * @example

@@ -1,7 +1,7 @@
 {
   "name": "@ronits2407/cp-api",
-  "version": "1.0.8",
-  "description": "One unified, fault-tolerant SDK to fetch contests, profiles, problems, submissions, and analytics from all major competitive programming platforms.",
+  "version": "1.1.0",
+  "description": "One unified, fault-tolerant SDK to fetch contests, profiles, problem content, submissions, and analytics from Codeforces, AtCoder, LeetCode, and CodeChef.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -20,9 +20,16 @@
   },
   "scripts": {
     "build": "tsup",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build && npm test"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
+    "release:check": "npm run check && npm run build && npm pack --dry-run",
+    "prepublishOnly": "npm run check && npm run build"
   },
   "keywords": [
     "competitive-programming",
@@ -51,11 +58,16 @@
     "lru-cache": "^11.5.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cheerio": "^0.22.35",
     "@types/node": "^26.1.0",
+    "eslint": "^10.8.1",
+    "globals": "^17.9.0",
+    "prettier": "^3.9.6",
     "tsup": "^8.5.1",
     "tsx": "^4.23.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.67.0",
     "vitest": "^4.1.10"
   }
 }

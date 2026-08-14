@@ -1,17 +1,13 @@
-import axios from 'axios';
-import { cachedFetch } from '../cache';
-import { getConfig } from '../config';
-import { UnifiedContest } from '../types';
+import { cachedFetch } from "../cache";
+import { UnifiedContest } from "../types";
+import { getPlatformHttpClient } from "../utils/platformHttpClient";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// CONSTANTS
 
-const LC_GRAPHQL_URL = 'https://leetcode.com/graphql';
+const LC_GRAPHQL_URL = "https://leetcode.com/graphql";
 
 const LC_HEADERS = {
-  'Content-Type': 'application/json',
-  'User-Agent': 'Mozilla/5.0',
+  "Content-Type": "application/json",
 };
 
 /** Cache TTL: 5 minutes (ms) */
@@ -20,9 +16,7 @@ const TTL_5_MIN = 5 * 60 * 1000;
 /** Cache TTL: 1 hour (ms) */
 const TTL_1_HOUR = 60 * 60 * 1000;
 
-// ---------------------------------------------------------------------------
-// Return-type interfaces
-// ---------------------------------------------------------------------------
+// TYPES
 
 export interface LCContestBadge {
   name: string;
@@ -48,8 +42,16 @@ export interface LCUserProfile {
 }
 
 export interface LCSubmitStats {
-  totalSubmissionNum: Array<{ difficulty: string; count: number; submissions: number }>;
-  acSubmissionNum: Array<{ difficulty: string; count: number; submissions: number }>;
+  totalSubmissionNum: Array<{
+    difficulty: string;
+    count: number;
+    submissions: number;
+  }>;
+  acSubmissionNum: Array<{
+    difficulty: string;
+    count: number;
+    submissions: number;
+  }>;
 }
 
 export interface LCUser {
@@ -87,7 +89,7 @@ export interface LCProblem {
   questionFrontendId: string;
   title: string;
   titleSlug: string;
-  difficulty: 'Easy' | 'Medium' | 'Hard';
+  difficulty: "Easy" | "Medium" | "Hard";
   topicTags: Array<{ name: string; slug: string }>;
   isPaidOnly: boolean;
   acRate: number;
@@ -103,7 +105,7 @@ export interface LCProblemDetail extends LCProblem {
 }
 
 export interface LCProblemsOptions {
-  difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+  difficulty?: "EASY" | "MEDIUM" | "HARD";
   tags?: string[];
   limit?: number;
   skip?: number;
@@ -126,45 +128,38 @@ export interface LCTopicTag {
   slug: string;
 }
 
-// ---------------------------------------------------------------------------
-// Helper
-// ---------------------------------------------------------------------------
+// HELPERS
 
 /**
- * Execute a LeetCode GraphQL query.
+ * Execute a LeetCode GraphQL query
  * @param query     GraphQL query string
  * @param variables Optional variables object
- * @param timeout   Request timeout in ms
  */
 async function lcGraphQL<T = any>(
   query: string,
   variables: Record<string, unknown> = {},
-  timeout: number = 15000,
 ): Promise<T> {
-  const response = await axios.post<{ data: T; errors?: any[] }>(
-    LC_GRAPHQL_URL,
-    { query, variables },
-    { timeout, headers: LC_HEADERS },
-  );
+  const response = await getPlatformHttpClient("leetcode").post<{
+    data: T;
+    errors?: any[];
+  }>(LC_GRAPHQL_URL, { query, variables }, LC_HEADERS);
 
-  if (response.data.errors?.length) {
-    throw new Error(`LeetCode GraphQL error: ${JSON.stringify(response.data.errors)}`);
+  if (response.errors?.length) {
+    throw new Error(
+      `LeetCode GraphQL error: ${JSON.stringify(response.errors)}`,
+    );
   }
 
-  return response.data.data;
+  return response.data;
 }
 
-// ---------------------------------------------------------------------------
-// Class
-// ---------------------------------------------------------------------------
+// LeetCode CLASS
 
 export class LeetCode {
-  // -------------------------------------------------------------------------
-  // Contests
-  // -------------------------------------------------------------------------
+  // Contests methods
 
   /**
-   * Fetch all upcoming LeetCode contests.
+   * Fetch all upcoming LeetCode contests
    *
    * Queries the `upcomingContests` GraphQL field and maps each entry to
    * the shared {@link UnifiedContest} shape.
@@ -172,8 +167,6 @@ export class LeetCode {
    * @returns A promise that resolves to an array of upcoming contests.
    */
   async getUpcomingContests(): Promise<UnifiedContest[]> {
-    const { http } = getConfig();
-
     const query = `
       query {
         upcomingContests {
@@ -185,14 +178,14 @@ export class LeetCode {
       }
     `;
 
-    const data = await lcGraphQL<{ upcomingContests: any[] }>(query, {}, http.timeout);
+    const data = await lcGraphQL<{ upcomingContests: any[] }>(query);
     const contests: any[] = data.upcomingContests ?? [];
 
     return contests.map((c) => {
       const startTime = new Date(c.startTime * 1000);
       const endTime = new Date((c.startTime + c.duration) * 1000);
       return {
-        platform: 'LEETCODE' as const,
+        platform: "LEETCODE" as const,
         id: c.titleSlug as string,
         name: c.title as string,
         startTime,
@@ -203,12 +196,10 @@ export class LeetCode {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // User
-  // -------------------------------------------------------------------------
+  // User methods
 
   /**
-   * Fetch a user's public profile.
+   * Fetch a user's public profile
    *
    * Uses the `userPublicProfile` GraphQL query. Results are cached for
    * **5 minutes**.
@@ -217,8 +208,6 @@ export class LeetCode {
    * @returns The user's profile data including stats and contest badge.
    */
   async getUser(username: string): Promise<LCUser> {
-    const { http } = getConfig();
-
     return cachedFetch(
       `lc:user:${username}`,
       async () => {
@@ -266,19 +255,15 @@ export class LeetCode {
           }
         `;
 
-        const data = await lcGraphQL<{ matchedUser: any }>(
-          query,
-          { username },
-          http.timeout,
-        );
+        const data = await lcGraphQL<{ matchedUser: any }>(query, { username });
 
         const u = data.matchedUser;
         if (!u) throw new Error(`LeetCode user not found: ${username}`);
 
         return {
           username: u.username,
-          realName: u.profile?.realName ?? '',
-          about: u.profile?.aboutMe ?? '',
+          realName: u.profile?.realName ?? "",
+          about: u.profile?.aboutMe ?? "",
           skillTags: u.profile?.skillTags ?? [],
           contestBadge: u.contestBadge ?? null,
           ranking: u.profile?.ranking ?? 0,
@@ -286,9 +271,9 @@ export class LeetCode {
           starRating: 0,
           profile: {
             ranking: u.profile?.ranking ?? 0,
-            userAvatar: u.profile?.userAvatar ?? '',
-            realName: u.profile?.realName ?? '',
-            aboutMe: u.profile?.aboutMe ?? '',
+            userAvatar: u.profile?.userAvatar ?? "",
+            realName: u.profile?.realName ?? "",
+            aboutMe: u.profile?.aboutMe ?? "",
             school: u.profile?.school ?? null,
             websites: u.profile?.websites ?? [],
             countryName: u.profile?.countryName ?? null,
@@ -299,7 +284,10 @@ export class LeetCode {
             reputation: u.profile?.reputation ?? 0,
             solutionCount: u.profile?.solutionCount ?? 0,
           },
-          submitStats: u.submitStats ?? { totalSubmissionNum: [], acSubmissionNum: [] },
+          submitStats: u.submitStats ?? {
+            totalSubmissionNum: [],
+            acSubmissionNum: [],
+          },
         };
       },
       TTL_5_MIN,
@@ -307,7 +295,7 @@ export class LeetCode {
   }
 
   /**
-   * Fetch the number of problems a user has solved, broken down by difficulty.
+   * Fetch the number of problems a user has solved, broken down by difficulty
    *
    * Uses the `userProblemsSolved` GraphQL query. Results are cached for
    * **5 minutes**.
@@ -316,8 +304,6 @@ export class LeetCode {
    * @returns An object with `easy`, `medium`, `hard`, and `total` counts.
    */
   async getUserSolvedCount(username: string): Promise<LCSolvedCount> {
-    const { http } = getConfig();
-
     return cachedFetch(
       `lc:user:solved:${username}`,
       async () => {
@@ -334,11 +320,7 @@ export class LeetCode {
           }
         `;
 
-        const data = await lcGraphQL<{ matchedUser: any }>(
-          query,
-          { username },
-          http.timeout,
-        );
+        const data = await lcGraphQL<{ matchedUser: any }>(query, { username });
 
         const acNums: Array<{ difficulty: string; count: number }> =
           data.matchedUser?.submitStats?.acSubmissionNum ?? [];
@@ -347,10 +329,10 @@ export class LeetCode {
           acNums.find((x) => x.difficulty === diff)?.count ?? 0;
 
         return {
-          easy: get('Easy'),
-          medium: get('Medium'),
-          hard: get('Hard'),
-          total: get('All'),
+          easy: get("Easy"),
+          medium: get("Medium"),
+          hard: get("Hard"),
+          total: get("All"),
         };
       },
       TTL_5_MIN,
@@ -358,7 +340,7 @@ export class LeetCode {
   }
 
   /**
-   * Fetch a user's full contest participation history.
+   * Fetch a user's full contest participation history
    *
    * Uses the `userContestRankingInfo` GraphQL query. Results are cached for
    * **5 minutes**.
@@ -366,9 +348,9 @@ export class LeetCode {
    * @param username LeetCode username (handle).
    * @returns An array of contest history entries ordered by most-recent first.
    */
-  async getUserContestHistory(username: string): Promise<LCContestHistoryEntry[]> {
-    const { http } = getConfig();
-
+  async getUserContestHistory(
+    username: string,
+  ): Promise<LCContestHistoryEntry[]> {
     return cachedFetch(
       `lc:user:contests:${username}`,
       async () => {
@@ -393,13 +375,12 @@ export class LeetCode {
         const data = await lcGraphQL<{ userContestRankingHistory: any[] }>(
           query,
           { username },
-          http.timeout,
         );
 
         const history: any[] = data.userContestRankingHistory ?? [];
 
         return history.map((h) => ({
-          contestTitle: h.contest?.title ?? '',
+          contestTitle: h.contest?.title ?? "",
           ranking: h.ranking ?? 0,
           score: h.problemsSolved ?? 0,
           totalProblems: h.totalProblems ?? 0,
@@ -412,12 +393,10 @@ export class LeetCode {
     );
   }
 
-  // -------------------------------------------------------------------------
-  // Problems
-  // -------------------------------------------------------------------------
+  // Problem methods
 
   /**
-   * Fetch a paginated list of LeetCode problems, with optional filters.
+   * Fetch a paginated list of LeetCode problems, with optional filters
    *
    * Results are cached for **1 hour** per unique combination of options.
    *
@@ -428,10 +407,9 @@ export class LeetCode {
    * @returns An object containing the `total` problem count and a `problems` array.
    */
   async getProblems(opts: LCProblemsOptions = {}): Promise<LCProblemsResult> {
-    const { http } = getConfig();
     const { difficulty, tags = [], limit = 50, skip = 0 } = opts;
 
-    const cacheKey = `lc:problems:${difficulty ?? 'ALL'}:${tags.join(',')}:${limit}:${skip}`;
+    const cacheKey = `lc:problems:${difficulty ?? "ALL"}:${tags.join(",")}:${limit}:${skip}`;
 
     return cachedFetch(
       cacheKey,
@@ -469,14 +447,15 @@ export class LeetCode {
         `;
 
         const filters: Record<string, unknown> = {};
-        if (difficulty) filters['difficulty'] = difficulty;
-        if (tags.length > 0) filters['tags'] = tags;
+        if (difficulty) filters["difficulty"] = difficulty;
+        if (tags.length > 0) filters["tags"] = tags;
 
-        const data = await lcGraphQL<{ problemsetQuestionList: any }>(
-          query,
-          { categorySlug: '', limit, skip, filters },
-          http.timeout,
-        );
+        const data = await lcGraphQL<{ problemsetQuestionList: any }>(query, {
+          categorySlug: "",
+          limit,
+          skip,
+          filters,
+        });
 
         const list = data.problemsetQuestionList ?? {};
 
@@ -500,17 +479,15 @@ export class LeetCode {
   }
 
   /**
-   * Fetch full details for a single problem by its title slug.
+   * Fetch full details for a single problem by its title slug
    *
    * Includes description HTML, hints, example test cases, topic tags, and
    * code snippets. Results are cached for **1 hour**.
    *
-   * @param titleSlug The URL-safe slug of the problem (e.g. `'two-sum'`).
+   * @param titleSlug The URL-safe slug of the problem (Eg. `'two-sum'`).
    * @returns The full problem detail object.
    */
   async getProblem(titleSlug: string): Promise<LCProblemDetail> {
-    const { http } = getConfig();
-
     return cachedFetch(
       `lc:problem:${titleSlug}`,
       async () => {
@@ -542,11 +519,7 @@ export class LeetCode {
           }
         `;
 
-        const data = await lcGraphQL<{ question: any }>(
-          query,
-          { titleSlug },
-          http.timeout,
-        );
+        const data = await lcGraphQL<{ question: any }>(query, { titleSlug });
 
         const q = data.question;
         if (!q) throw new Error(`LeetCode problem not found: ${titleSlug}`);
@@ -556,16 +529,16 @@ export class LeetCode {
           questionFrontendId: q.questionFrontendId,
           title: q.title,
           titleSlug: q.titleSlug,
-          content: q.content ?? '',
+          content: q.content ?? "",
           difficulty: q.difficulty,
           topicTags: q.topicTags ?? [],
           hints: q.hints ?? [],
-          exampleTestcases: q.exampleTestcases ?? '',
+          exampleTestcases: q.exampleTestcases ?? "",
           codeSnippets: q.codeSnippets ?? [],
           isPaidOnly: q.isPaidOnly ?? false,
           acRate: q.acRate ?? 0,
           status: q.status ?? null,
-          sampleTestCase: q.sampleTestCase ?? '',
+          sampleTestCase: q.sampleTestCase ?? "",
         };
       },
       TTL_1_HOUR,
@@ -573,7 +546,7 @@ export class LeetCode {
   }
 
   /**
-   * Fetch today's LeetCode Daily Challenge problem.
+   * Fetch today's Daily Challenge problem
    *
    * Results are cached for **1 hour** (refreshed at most once per hour even
    * if the daily resets in between).
@@ -581,10 +554,8 @@ export class LeetCode {
    * @returns The daily challenge object, including the question details.
    */
   async getDailyChallenge(): Promise<LCDailyChallenge> {
-    const { http } = getConfig();
-
     return cachedFetch(
-      'lc:daily',
+      "lc:daily",
       async () => {
         const query = `
           query questionOfToday {
@@ -618,14 +589,12 @@ export class LeetCode {
           }
         `;
 
-        const data = await lcGraphQL<{ activeDailyCodingChallengeQuestion: any }>(
-          query,
-          {},
-          http.timeout,
-        );
+        const data = await lcGraphQL<{
+          activeDailyCodingChallengeQuestion: any;
+        }>(query);
 
         const daily = data.activeDailyCodingChallengeQuestion;
-        if (!daily) throw new Error('LeetCode daily challenge not available');
+        if (!daily) throw new Error("LeetCode daily challenge not available");
 
         const q = daily.question;
         return {
@@ -636,16 +605,16 @@ export class LeetCode {
             questionFrontendId: q.questionFrontendId,
             title: q.title,
             titleSlug: q.titleSlug,
-            content: q.content ?? '',
+            content: q.content ?? "",
             difficulty: q.difficulty,
             topicTags: q.topicTags ?? [],
             hints: q.hints ?? [],
-            exampleTestcases: q.exampleTestcases ?? '',
+            exampleTestcases: q.exampleTestcases ?? "",
             codeSnippets: q.codeSnippets ?? [],
             isPaidOnly: q.isPaidOnly ?? false,
             acRate: q.acRate ?? 0,
             status: q.status ?? null,
-            sampleTestCase: q.sampleTestCase ?? '',
+            sampleTestCase: q.sampleTestCase ?? "",
           },
         };
       },
@@ -654,17 +623,15 @@ export class LeetCode {
   }
 
   /**
-   * Fetch all available topic tags on LeetCode.
+   * Fetch all available topic tags
    *
    * Results are cached for **1 hour**.
    *
    * @returns An array of topic tag objects with `name`, `id`, and `slug`.
    */
   async getTopicTags(): Promise<LCTopicTag[]> {
-    const { http } = getConfig();
-
     return cachedFetch(
-      'lc:topicTags',
+      "lc:topicTags",
       async () => {
         const query = `
           query questionTopicTags {
@@ -680,11 +647,7 @@ export class LeetCode {
           }
         `;
 
-        const data = await lcGraphQL<{ questionTopicTags: any }>(
-          query,
-          {},
-          http.timeout,
-        );
+        const data = await lcGraphQL<{ questionTopicTags: any }>(query);
 
         const edges: any[] = data.questionTopicTags?.edges ?? [];
         return edges.map((e) => ({
@@ -698,18 +661,16 @@ export class LeetCode {
   }
 
   /**
-   * Check whether a user has solved a specific problem.
+   * Check whether a user has solved a specific problem
    *
    * Inspects the user's 20 most recent accepted submissions. Returns `true`
    * if an accepted submission for the given `titleSlug` is found.
    *
    * @param username  LeetCode username (handle).
-   * @param titleSlug The URL-safe slug of the problem (e.g. `'two-sum'`).
+   * @param titleSlug The URL-safe slug of the problem (Eg. `'two-sum'`).
    * @returns `true` if the problem has been solved, `false` otherwise.
    */
   async isProblemSolved(username: string, titleSlug: string): Promise<boolean> {
-    const { http } = getConfig();
-
     const query = `
       query recentAcSubmissions($username: String!, $limit: Int!) {
         recentAcSubmissionList(username: $username, limit: $limit) {
@@ -718,11 +679,10 @@ export class LeetCode {
       }
     `;
 
-    const data = await lcGraphQL<{ recentAcSubmissionList: any[] }>(
-      query,
-      { username, limit: 20 },
-      http.timeout,
-    );
+    const data = await lcGraphQL<{ recentAcSubmissionList: any[] }>(query, {
+      username,
+      limit: 20,
+    });
 
     const submissions: any[] = data.recentAcSubmissionList ?? [];
     return submissions.some((s) => s.titleSlug === titleSlug);
