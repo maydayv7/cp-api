@@ -1,5 +1,8 @@
-import { describe, expect, it } from "vitest";
-import { parseCodeforcesProblemContent } from "../src/platforms/codeforces";
+import { describe, expect, it, vi } from "vitest";
+import {
+  Codeforces,
+  parseCodeforcesProblemContent,
+} from "../src/platforms/codeforces";
 import { parseAtCoderProblemContent } from "../src/platforms/atcoder";
 import {
   ProblemContentAccessError,
@@ -36,6 +39,26 @@ describe("problem content parsing", () => {
       "https://codeforces.com/contest/10/problem/A",
     );
     expect(result.samples).toEqual([{ input: "3\n1 2 3", output: "YES\nNO" }]);
+  });
+
+  it("uses a custom fetcher for Codeforces problem pages", async () => {
+    const html = `<div class="problem-statement"><div class="header"><div class="title">B. Custom</div></div><div><p>Fetched elsewhere</p></div><div class="input-specification"></div><div class="output-specification"></div><div class="sample-tests"></div></div>`;
+    const fetcher = vi.fn().mockResolvedValue(html);
+
+    const result = await new Codeforces().getProblemContent(1234, "b", {
+      fetcher,
+    });
+
+    expect(fetcher).toHaveBeenCalledOnce();
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://codeforces.com/contest/1234/problem/B?locale=en",
+    );
+    expect(result).toMatchObject({
+      contestId: "1234",
+      problemId: "B",
+      title: "B. Custom",
+    });
+    expect(result.statementHtml).toContain("Fetched elsewhere");
   });
 
   it("selects English AtCoder content and pairs samples", () => {

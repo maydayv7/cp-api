@@ -83,6 +83,7 @@ import { resetPlatformHttpClients } from "./utils/platformHttpClient";
 export * from "./types";
 export type {
   ProblemContent,
+  ProblemContentFetcher,
   ProblemContentPlatform,
   ProblemSample,
 } from "./problemContent";
@@ -99,6 +100,7 @@ export type {
   CFBlogEntry,
   CFStandings,
   CFProblemFilters,
+  CFProblemContentOptions,
   CFSubmissionFilters,
 } from "./platforms/codeforces";
 export { getCFRankFromRating, getCFRatingColor } from "./platforms/codeforces";

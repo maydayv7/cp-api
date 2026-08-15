@@ -117,6 +117,13 @@ const difficulty = await cp.analytics.getDifficultyDistribution(
 const cf = await cp.codeforces.getProblemContent(1234, "A");
 console.log(cf.title, cf.timeLimitMs, cf.samples);
 
+const custom = await cp.codeforces.getProblemContent(1234, "A", {
+  fetcher: async (url) => {
+    const response = await fetchYourWay(url);
+    return response.text();
+  },
+});
+
 const ac = await cp.atcoder.getProblemContent("abc001", "abc001_a");
 console.log(ac.statementHtml, ac.constraintsHtml);
 ```
@@ -124,7 +131,8 @@ console.log(ac.statementHtml, ac.constraintsHtml);
 Problem HTML is sanitized before it is returned. The platform pages may apply
 browser-verification protection to server-side requests; CP-API detects known
 challenge pages and throws `ProblemContentAccessError` instead of reporting a
-misleading parsing failure.
+misleading parsing failure. Codeforces accepts an optional custom fetcher when
+the caller needs to obtain the public HTML through another transport.
 
 ## 🧩 Deep-Dive Platform APIs
 

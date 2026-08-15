@@ -24,6 +24,9 @@ export interface ProblemContent {
   sourceUrl: string;
 }
 
+/** Fetch the HTML document for a public problem URL */
+export type ProblemContentFetcher = (url: string) => Promise<string>;
+
 export class ProblemContentAccessError extends Error {
   constructor(public readonly platform: ProblemContentPlatform) {
     super(

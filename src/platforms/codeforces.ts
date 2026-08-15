@@ -8,6 +8,7 @@ import { UnifiedContest } from "../types";
 import {
   assertProblemPageAccessible,
   ProblemContent,
+  ProblemContentFetcher,
   sanitizeProblemHtml,
 } from "../problemContent";
 import { getPlatformHttpClient } from "../utils/platformHttpClient";
@@ -163,6 +164,11 @@ export interface CFSubmissionFilters {
     | string;
   from?: number;
   count?: number;
+}
+
+export interface CFProblemContentOptions {
+  /** Override how the public problem page HTML is fetched */
+  fetcher?: ProblemContentFetcher;
 }
 
 function cleanPre(
@@ -552,19 +558,28 @@ export class Codeforces {
     );
   }
 
-  /** Fetch and parse the public statement and sample tests */
+  /**
+   * Fetch and parse the public statement and sample tests
+   * A custom fetcher can provide HTML when the platform blocks direct requests.
+   */
   async getProblemContent(
     contestId: number,
     index: string,
+    options: CFProblemContentOptions = {},
   ): Promise<ProblemContent> {
     const normalizedIndex = index.toUpperCase();
     const sourceUrl = `${CF_MAIN}/contest/${contestId}/problem/${encodeURIComponent(normalizedIndex)}?locale=en`;
     return cachedFetch(
-      `cf:problem-content:${contestId}:${normalizedIndex}`,
+      `cf:problem-content:${options.fetcher ? "custom" : "direct"}:${contestId}:${normalizedIndex}`,
       async () => {
-        const html = await getPlatformHttpClient(
-          "codeforces",
-        ).getWithOptions<string>(sourceUrl, { responseType: "text" });
+        const html = options.fetcher
+          ? await options.fetcher(sourceUrl)
+          : await getPlatformHttpClient("codeforces").getWithOptions<string>(
+              sourceUrl,
+              { responseType: "text" },
+            );
+        if (typeof html !== "string")
+          throw new TypeError("Problem content fetcher must return HTML");
         return parseCodeforcesProblemContent(
           html,
           contestId,

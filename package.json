@@ -1,6 +1,6 @@
 {
   "name": "@ronits2407/cp-api",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "One unified, fault-tolerant SDK to fetch contests, profiles, problem content, submissions, and analytics from Codeforces, AtCoder, LeetCode, and CodeChef.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
